@@ -3,10 +3,8 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 
 export default defineConfig({
-  // GitHub Pages 若部署在 xxx.github.io/仓库名/ 下，需设 base；本地和 Vercel 等可保持 '/'
-  base: process.env.GITHUB_REPOSITORY
-    ? '/' + process.env.GITHUB_REPOSITORY.split('/')[1] + '/'
-    : '/',
+  // 使用相对路径，部署在任意子路径（如 xxx.github.io/仓库名/ 或 自定义域名/仓库名/）都能正确加载资源
+  base: './',
   plugins: [react()],
   resolve: {
     alias: {
