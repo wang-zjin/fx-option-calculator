@@ -11,7 +11,7 @@ import {
   priceAmerican,
 } from './binomialTree';
 import { priceCall as europeanCall, pricePut as europeanPut } from '../vanilla/garmanKohlhagen';
-import type { AmericanParams, OptionType } from '../types';
+import type { AmericanParams } from '../types';
 
 const baseParams: AmericanParams = {
   S: 100,
