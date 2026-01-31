@@ -44,24 +44,45 @@ export interface VanillaResult {
   volga?: number;
 }
 
+/** 数字期权类型：现金或无 / 资产或无 */
+export type DigitalOptionKind = 'cashOrNothing' | 'assetOrNothing';
+
 /** 数字期权额外输入 */
 export interface DigitalParams extends GKParams {
-  /** 触发时支付金额 D */
+  /** 触发时支付金额 D（Cash-or-Nothing 时有效；Asset-or-Nothing 时为 1 单位外币） */
   D: number;
-  /** 支付货币：'domestic' | 'foreign' */
+  /** 支付货币：'domestic' | 'foreign'（仅 Cash-or-Nothing 有效） */
   payoffCurrency?: 'domestic' | 'foreign';
+  /** 数字期权类型，默认 cashOrNothing */
+  digitalKind?: DigitalOptionKind;
 }
 
 /** 数字期权定价结果 */
 export interface DigitalResult {
   price: number;
   delta?: number;
+  gamma?: number;
+  vega?: number;   // 按 1% 波动率变化
+  theta?: number;  // 按 1 天
 }
+
+/** 美式期权树类型 */
+export type AmericanTreeType = 'crr' | 'trinomial';
 
 /** 美式期权额外输入 */
 export interface AmericanParams extends GKParams {
-  /** 二叉树/三叉树步数 */
+  /** 二叉树/三叉树步数，默认 200 */
   steps?: number;
+  /** 树类型：CRR 二叉树 / 三叉树，默认 'crr' */
+  treeType?: AmericanTreeType;
+}
+
+/** 早期行权边界点（美式看跌：t 时刻行权临界即期 S*） */
+export interface EarlyExerciseBoundaryPoint {
+  /** 距到期时间（年） */
+  t: number;
+  /** 临界即期汇率 S*，低于此应提前行权 */
+  S: number;
 }
 
 /** 美式期权定价结果 */
@@ -70,6 +91,11 @@ export interface AmericanResult {
   /** 与欧式价格差（提前行权价值） */
   earlyExercisePremium?: number;
   delta?: number;
+  gamma?: number;   // 数值，∂²V/∂S²
+  vega?: number;   // 数值，按 1% 波动率
+  theta?: number;  // 数值，按 1 天
+  /** 早期行权边界（美式看跌可选），(t, S*) 数组 */
+  earlyExerciseBoundary?: EarlyExerciseBoundaryPoint[];
 }
 
 /** 亚式期权额外输入 */

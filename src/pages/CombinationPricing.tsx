@@ -9,7 +9,7 @@ import {
   validateSeagullInput,
 } from '../utils/validation';
 import { CURRENCY_PAIRS, CURRENCY_TEMPLATES, CURRENCY_CONVENTION } from '../constants/currencyTemplates';
-import { getCombinationForm, setCombinationForm } from '../utils/persistForm';
+import { getCombinationForm, setCombinationForm, getCombinationForms, setCombinationForms } from '../utils/persistForm';
 
 type SharedForm = {
   currencyPair: string;
@@ -122,6 +122,9 @@ export function CombinationPricing() {
 
   useEffect(() => {
     setCombinationForm({ shared, rr, seagull, comboType, showLegs });
+    const forms = getCombinationForms();
+    forms[shared.currencyPair] = { shared, rr, seagull };
+    setCombinationForms(forms);
   }, [shared, rr, seagull, comboType, showLegs]);
 
   const updateShared = useCallback(<K extends keyof SharedForm>(k: K, v: SharedForm[K]) => {
@@ -284,17 +287,33 @@ export function CombinationPricing() {
                 value={shared.currencyPair}
                 onChange={(e) => {
                   const pair = e.target.value;
-                  const t = CURRENCY_TEMPLATES[pair] ?? CURRENCY_TEMPLATES['其他'];
-                  setShared((s) => ({
-                    ...s,
-                    currencyPair: pair,
-                    spot: t.spot,
-                    r_d: t.r_d,
-                    r_f: t.r_f,
-                    notional: t.notional,
-                  }));
-                  setRR(rrLegsFromTemplate(t));
-                  setSeagull(seagullLegsFromTemplate(t));
+                  const forms = getCombinationForms();
+                  const currentCache = forms[shared.currencyPair] as { shared?: SharedForm; rr?: RRForm; seagull?: SeagullForm } | undefined;
+                  if (currentCache && typeof currentCache === 'object') {
+                    currentCache.shared = shared;
+                    currentCache.rr = rr;
+                    currentCache.seagull = seagull;
+                  }
+                  forms[shared.currencyPair] = { shared, rr, seagull };
+                  setCombinationForms(forms);
+                  const cached = forms[pair] as { shared?: SharedForm; rr?: RRForm; seagull?: SeagullForm } | undefined;
+                  if (cached?.shared && cached.shared.currencyPair === pair && cached.rr && cached.seagull) {
+                    setShared({ ...cached.shared, currencyPair: pair });
+                    setRR(cached.rr);
+                    setSeagull(cached.seagull);
+                  } else {
+                    const t = CURRENCY_TEMPLATES[pair] ?? CURRENCY_TEMPLATES['其他'];
+                    setShared((s) => ({
+                      ...s,
+                      currencyPair: pair,
+                      spot: t.spot,
+                      r_d: t.r_d,
+                      r_f: t.r_f,
+                      notional: t.notional,
+                    }));
+                    setRR(rrLegsFromTemplate(t));
+                    setSeagull(seagullLegsFromTemplate(t));
+                  }
                   setErrors((prev) => { const next = { ...prev }; delete next.spot; delete next.notional; return next; });
                   setCalcError(null);
                 }}

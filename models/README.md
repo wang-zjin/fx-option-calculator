@@ -17,12 +17,12 @@ models/
 ├── vanilla/            # 欧式香草期权（Garman-Kohlhagen）
 │   ├── index.ts
 │   └── garmanKohlhagen.ts
-├── digital/            # 数字期权（Cash-or-Nothing）
+├── digital/            # 数字期权（Cash-or-Nothing / Asset-or-Nothing）
 │   ├── index.ts
-│   └── cashOrNothing.ts
-├── american/           # 美式期权（二叉树）
+│   └── cashOrNothing.ts  # 本币/外币支付、Greeks（Delta/Gamma/Vega/Theta）
+├── american/           # 美式期权（CRR 二叉树 / 三叉树）
 │   ├── index.ts
-│   └── binomialTree.ts
+│   └── binomialTree.ts # 数学模型、Greeks、早期行权边界
 └── asian/              # 亚式期权（蒙特卡洛 / 解析近似）
     ├── index.ts
     └── asianPricing.ts
@@ -38,7 +38,7 @@ import { priceVanilla, priceDigital, priceAmerican, priceAsian } from './models'
 
 // 方式二：按模块引用
 import { priceCall, pricePut, greeks } from './models/vanilla';
-import { priceDigitalCall, priceDigitalPut } from './models/digital';
+import { priceDigital, priceDigitalWithGreeks, priceAssetOrNothingCall } from './models/digital';
 import { priceAmericanPut } from './models/american';
 import { priceAsianMC } from './models/asian';
 ```
@@ -48,8 +48,8 @@ import { priceAsianMC } from './models/asian';
 | 期权类型 | 模型文件 | 功能规格章节 |
 |----------|----------|--------------|
 | Vanilla 欧式 | vanilla/garmanKohlhagen.ts | 二、Vanilla |
-| 数字期权 | digital/cashOrNothing.ts | 三、数字期权 |
-| 美式期权 | american/binomialTree.ts | 四、美式期权 |
+| 数字期权 | digital/cashOrNothing.ts | 三、数字期权（Cash/Asset-or-Nothing，本币/外币支付，T2 折现，Greeks） |
+| 美式期权 | american/binomialTree.ts | 四、美式期权（CRR/三叉树、数值 Greeks、早期行权边界） |
 | 亚式期权 | asian/asianPricing.ts | 五、亚式期权 |
 
 ## 验证

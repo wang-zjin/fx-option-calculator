@@ -5,7 +5,7 @@ import { t1Years, t2Years, todayString, addMonths, resolveMaturityDate, isDateSt
 import { addTradingDays, toPreviousTradingDay } from '../utils/tradingCalendar';
 import { validateVanillaInput } from '../utils/validation';
 import { CURRENCY_PAIRS, CURRENCY_TEMPLATES, CURRENCY_CONVENTION } from '../constants/currencyTemplates';
-import { getVanillaForm, setVanillaForm } from '../utils/persistForm';
+import { getVanillaForm, setVanillaForm, getVanillaForms, setVanillaForms } from '../utils/persistForm';
 
 type FormState = {
   currencyPair: string;
@@ -38,10 +38,39 @@ function getInitialForm(): FormState {
   return { ...defaultFormBase, today, premiumDate, maturityDate, settlementDate };
 }
 
+/** 指定币种的默认表单（用于该币种无缓存时） */
+function getDefaultFormFor(pair: string): FormState {
+  const today = todayString();
+  const premiumDate = addTradingDays(today, 2);
+  const maturityDate = toPreviousTradingDay(addMonths(today, 1));
+  const settlementDate = addTradingDays(maturityDate, 2);
+  const t = CURRENCY_PAIRS.includes(pair as typeof CURRENCY_PAIRS[number])
+    ? (CURRENCY_TEMPLATES[pair] ?? CURRENCY_TEMPLATES['其他'])
+    : CURRENCY_TEMPLATES['其他'];
+  return {
+    currencyPair: pair,
+    today,
+    premiumDate,
+    maturityDate,
+    settlementDate,
+    spot: t.spot,
+    strike: t.strike,
+    r_d: t.r_d,
+    r_f: t.r_f,
+    notional: t.notional,
+    longOrShort: 'long',
+    optionType: 'put',
+    sigma: t.sigma,
+  };
+}
+
 export function VanillaPricing() {
   const [form, setForm] = useState<FormState>(() => getVanillaForm(getInitialForm()));
   useEffect(() => {
     setVanillaForm(form);
+    const forms = getVanillaForms();
+    forms[form.currencyPair] = form;
+    setVanillaForms(forms);
   }, [form]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [result, setResult] = useState<{
@@ -194,8 +223,17 @@ export function VanillaPricing() {
               value={form.currencyPair}
               onChange={(e) => {
                 const pair = e.target.value;
-                const template = CURRENCY_TEMPLATES[pair] ?? CURRENCY_TEMPLATES['其他'];
-                setForm((f) => ({ ...f, currencyPair: pair, ...template }));
+                const forms = getVanillaForms();
+                setForm((f) => {
+                  forms[f.currencyPair] = f;
+                  setVanillaForms(forms);
+                  const restored = forms[pair] as FormState | undefined;
+                  const next = restored && typeof restored === 'object' && 'spot' in restored && restored.currencyPair === pair
+                    ? { ...restored, currencyPair: pair }
+                    : getDefaultFormFor(pair);
+                  setVanillaForm(next);
+                  return next;
+                });
                 setErrors((prev) => { const next = { ...prev }; delete next.spot; delete next.strike; delete next.notional; delete next.sigma; return next; });
                 setCalcError(null);
               }}

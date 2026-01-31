@@ -29,6 +29,13 @@ export {
   priceDigitalCall,
   priceDigitalPut,
   priceDigital,
+  priceAssetOrNothingCall,
+  priceAssetOrNothingPut,
+  deltaDigital,
+  gammaDigital,
+  vegaDigital,
+  thetaDigital,
+  priceAndGreeks as priceDigitalWithGreeks,
   priceAndDelta as priceDigitalWithDelta,
 } from './digital';
 

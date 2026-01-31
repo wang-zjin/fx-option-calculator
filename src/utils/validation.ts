@@ -47,6 +47,26 @@ export function validateVanillaInput(form: {
   return err;
 }
 
+/** 数字期权输入校验：共享与 Vanilla 一致，Cash-or-Nothing 时 D > 0 */
+export function validateDigitalInput(form: {
+  today: string;
+  premiumDate: string;
+  maturityDate: string;
+  settlementDate: string;
+  spot: number;
+  strike: number;
+  r_d: number;
+  r_f: number;
+  notional: number;
+  sigma: number;
+  digitalKind: 'cashOrNothing' | 'assetOrNothing';
+  D: number;
+}): ValidationError {
+  const err = validateVanillaInput(form);
+  if (form.digitalKind === 'cashOrNothing' && form.D <= 0) err.D = '支付金额 D 须 > 0';
+  return err;
+}
+
 /** 组合期权共享输入校验（无单一执行价/波动率） */
 export function validateCombinationSharedInput(form: {
   today: string;
