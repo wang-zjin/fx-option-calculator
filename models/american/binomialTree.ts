@@ -207,8 +207,6 @@ function americanCallPrice(params: AmericanParams, steps: number): number {
 // ---------- 数值 Greeks ----------
 
 const BUMP_S_PCT = 0.001;
-const BUMP_SIGMA = 0.0001; // 1 bp → vega 按 1% 时乘 100
-const BUMP_T_DAY = 1 / 365;
 
 function priceAmericanPutRaw(
   params: AmericanParams,

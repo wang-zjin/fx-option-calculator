@@ -14,7 +14,7 @@ import {
   deltaCashForeign,
 } from './cashOrNothing';
 import { discountDomestic as discountDomesticCommon } from '../common/discount';
-import type { DigitalParams, OptionType } from '../types';
+import type { DigitalParams } from '../types';
 
 const baseParams: DigitalParams = {
   S: 1.1,
