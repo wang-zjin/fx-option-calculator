@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { VanillaPricing } from './pages/VanillaPricing';
 import { CombinationPricing } from './pages/CombinationPricing';
 import { DigitalPricing } from './pages/DigitalPricing';
+import { AmericanPricing } from './pages/AmericanPricing';
 
-type Module = 'vanilla' | 'combination' | 'digital';
+type Module = 'vanilla' | 'combination' | 'digital' | 'american';
 
 const navBtn = (mod: Module, current: Module) => ({
   padding: '0.4rem 0.8rem',
@@ -31,6 +32,9 @@ function App() {
           <button type="button" onClick={() => setModule('digital')} style={navBtn('digital', module)}>
             数字期权定价
           </button>
+          <button type="button" onClick={() => setModule('american')} style={navBtn('american', module)}>
+            美式期权定价
+          </button>
           <button type="button" onClick={() => setModule('combination')} style={navBtn('combination', module)}>
             组合期权定价
           </button>
@@ -41,6 +45,9 @@ function App() {
       </div>
       <div style={{ display: module === 'digital' ? 'block' : 'none' }}>
         <DigitalPricing />
+      </div>
+      <div style={{ display: module === 'american' ? 'block' : 'none' }}>
+        <AmericanPricing />
       </div>
       <div style={{ display: module === 'combination' ? 'block' : 'none' }}>
         <CombinationPricing />

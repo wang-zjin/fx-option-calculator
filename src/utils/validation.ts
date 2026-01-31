@@ -47,6 +47,28 @@ export function validateVanillaInput(form: {
   return err;
 }
 
+/** 美式期权输入校验：共享与 Vanilla 一致，树步数 2–1000 */
+export function validateAmericanInput(form: {
+  today: string;
+  premiumDate: string;
+  maturityDate: string;
+  settlementDate: string;
+  spot: number;
+  strike: number;
+  r_d: number;
+  r_f: number;
+  notional: number;
+  sigma: number;
+  steps: number;
+  treeType?: 'crr' | 'trinomial';
+}): ValidationError {
+  const err = validateVanillaInput(form);
+  const steps = Math.floor(form.steps);
+  if (Number.isNaN(steps) || steps < 2) err.steps = '树步数须 ≥ 2';
+  if (steps > 1000) err.steps = err.steps || '树步数建议 ≤ 1000，过大影响性能';
+  return err;
+}
+
 /** 数字期权输入校验：共享与 Vanilla 一致，Cash-or-Nothing 时 D > 0 */
 export function validateDigitalInput(form: {
   today: string;

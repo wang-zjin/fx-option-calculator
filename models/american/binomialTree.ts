@@ -147,7 +147,7 @@ function trinomialAmericanPut(
       const j = i - n;
       const spot = S * Math.pow(u, Math.max(0, j)) * Math.pow(d, Math.max(0, -j));
       const intrinsic = Math.max(K - spot, 0);
-      if (intrinsic > hold && boundaryS === null) boundaryS = spot;
+      if (intrinsic > hold) boundaryS = spot;
       next[i] = Math.max(intrinsic, hold);
     }
     prices = next;

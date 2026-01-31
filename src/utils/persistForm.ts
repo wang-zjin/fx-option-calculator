@@ -7,6 +7,8 @@ const KEY_VANILLA = 'fx-opt-vanilla-form';
 const KEY_VANILLA_BY_CURRENCY = 'fx-opt-vanilla-by-currency';
 const KEY_COMBINATION = 'fx-opt-combination-form';
 const KEY_COMBINATION_BY_CURRENCY = 'fx-opt-combination-by-currency';
+const KEY_AMERICAN = 'fx-opt-american-form';
+const KEY_AMERICAN_BY_CURRENCY = 'fx-opt-american-by-currency';
 
 export function getVanillaForm<T>(defaultValue: T): T {
   try {
@@ -95,6 +97,50 @@ export function getCombinationForms(): Record<string, unknown> {
 export function setCombinationForms(forms: Record<string, unknown>): void {
   try {
     localStorage.setItem(KEY_COMBINATION_BY_CURRENCY, JSON.stringify(forms));
+  } catch {
+    // ignore
+  }
+}
+
+/** 美式期权当前表单（刷新/关页后恢复） */
+export function getAmericanForm<T>(defaultValue: T): T {
+  try {
+    const raw = localStorage.getItem(KEY_AMERICAN);
+    if (!raw) return defaultValue;
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === 'object' && 'currencyPair' in parsed && 'spot' in parsed) {
+      return parsed as T;
+    }
+  } catch {
+    // ignore
+  }
+  return defaultValue;
+}
+
+export function setAmericanForm(data: unknown): void {
+  try {
+    localStorage.setItem(KEY_AMERICAN, JSON.stringify(data));
+  } catch {
+    // ignore
+  }
+}
+
+/** 按币种读取美式期权表单缓存（切换回该币种时恢复） */
+export function getAmericanForms(): Record<string, unknown> {
+  try {
+    const raw = localStorage.getItem(KEY_AMERICAN_BY_CURRENCY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
+  } catch {
+    // ignore
+  }
+  return {};
+}
+
+export function setAmericanForms(forms: Record<string, unknown>): void {
+  try {
+    localStorage.setItem(KEY_AMERICAN_BY_CURRENCY, JSON.stringify(forms));
   } catch {
     // ignore
   }
