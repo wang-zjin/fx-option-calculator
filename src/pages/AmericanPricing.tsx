@@ -9,8 +9,9 @@ import type {
 } from '@models';
 import { t1Years, todayString, resolveMaturityDate, addMonths } from '../utils/dateUtils';
 import { addTradingDays, toPreviousTradingDay } from '../utils/tradingCalendar';
+import { DateInput } from '../components/DateInput';
 import { validateAmericanInput } from '../utils/validation';
-import { CURRENCY_PAIRS, CURRENCY_TEMPLATES } from '../constants/currencyTemplates';
+import { CURRENCY_PAIRS, CURRENCY_TEMPLATES, CURRENCY_CONVENTION } from '../constants/currencyTemplates';
 import { getAmericanForm, setAmericanForm, getAmericanForms, setAmericanForms } from '../utils/persistForm';
 
 type FormState = {
@@ -117,14 +118,27 @@ export function AmericanPricing() {
   const [result, setResult] = useState<{
     optionPrice: number;
     premium: number;
+    premiumForeign: number;
+    premiumPct: number;
     earlyExercisePremium: number;
     delta: number;
     deltaPosition: number;
     gamma: number;
+    gammaPosition: number;
     vega: number;
     vegaPosition: number;
+    vanna: number | undefined;
+    vannaPosition: number | undefined;
+    volga: number | undefined;
+    volgaPosition: number | undefined;
+    timeDecay: number | undefined;
+    timeDecayPosition: number | undefined;
     theta: number;
     thetaPosition: number;
+    phi: number | undefined;
+    phiPosition: number | undefined;
+    rho: number | undefined;
+    rhoPosition: number | undefined;
     earlyExerciseBoundary?: AmericanResult['earlyExerciseBoundary'];
   } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -167,17 +181,32 @@ export function AmericanPricing() {
         const raw = priceAmerican(params, form.optionType);
         const sign = form.longOrShort === 'long' ? 1 : -1;
         const premium = raw.price * form.notional;
+        const premiumForeign = premium / form.spot;
+        const premiumPct = (raw.price / form.spot) * 100;
         setResult({
           optionPrice: raw.price,
           premium,
+          premiumForeign,
+          premiumPct,
           earlyExercisePremium: raw.earlyExercisePremium ?? 0,
           delta: raw.delta ?? 0,
           deltaPosition: (raw.delta ?? 0) * form.notional * sign,
           gamma: raw.gamma ?? 0,
+          gammaPosition: (raw.gamma ?? 0) * form.notional * sign,
           vega: raw.vega ?? 0,
           vegaPosition: (raw.vega ?? 0) * form.notional * sign,
+          vanna: raw.vanna,
+          vannaPosition: raw.vanna != null ? raw.vanna * form.notional * sign : undefined,
+          volga: raw.volga,
+          volgaPosition: raw.volga != null ? raw.volga * form.notional * sign : undefined,
+          timeDecay: raw.timeDecayBump,
+          timeDecayPosition: raw.timeDecayBump != null ? raw.timeDecayBump * form.notional * sign : undefined,
           theta: raw.theta ?? 0,
           thetaPosition: (raw.theta ?? 0) * form.notional * sign,
+          phi: raw.rho_f,
+          phiPosition: raw.rho_f != null ? raw.rho_f * form.notional * sign : undefined,
+          rho: raw.rho_d,
+          rhoPosition: raw.rho_d != null ? raw.rho_d * form.notional * sign : undefined,
           earlyExerciseBoundary: raw.earlyExerciseBoundary,
         });
       } catch (err) {
@@ -237,22 +266,22 @@ export function AmericanPricing() {
             </div>
             <div style={fieldStyle}>
               <label style={labelStyle}>当前日期</label>
-              <input type="date" style={inputStyle} value={form.today} onChange={(e) => update('today', e.target.value)} />
+              <DateInput value={form.today} onChange={(v) => update('today', v)} />
               {errors.today && <span style={errorStyle}>{errors.today}</span>}
             </div>
             <div style={fieldStyle}>
               <label style={labelStyle}>起息日</label>
-              <input type="date" style={inputStyle} value={form.premiumDate} onChange={(e) => update('premiumDate', e.target.value)} />
+              <DateInput value={form.premiumDate} onChange={(v) => update('premiumDate', v)} />
               {errors.premiumDate && <span style={errorStyle}>{errors.premiumDate}</span>}
             </div>
             <div style={fieldStyle}>
               <label style={labelStyle}>到期日</label>
-              <input type="text" style={inputStyle} placeholder="YYYY-MM-DD 或 1M、1Y" value={form.maturityDate} onChange={(e) => update('maturityDate', e.target.value)} />
+              <DateInput maturityMode value={form.maturityDate} onChange={(v) => update('maturityDate', v)} title="日期如 2026-02-27，或 1M、1Y 等" />
               {errors.maturityDate && <span style={errorStyle}>{errors.maturityDate}</span>}
             </div>
             <div style={fieldStyle}>
               <label style={labelStyle}>交割日</label>
-              <input type="date" style={inputStyle} value={form.settlementDate} onChange={(e) => update('settlementDate', e.target.value)} />
+              <DateInput value={form.settlementDate} onChange={(v) => update('settlementDate', v)} />
               {errors.settlementDate && <span style={errorStyle}>{errors.settlementDate}</span>}
             </div>
             <div style={fieldStyle}>
@@ -338,7 +367,9 @@ export function AmericanPricing() {
 
       {calcError && <div style={{ ...cardStyle, marginTop: '1rem', color: '#c00' }}>{calcError}</div>}
 
-      {result && !calcError && (
+      {result && !calcError && (() => {
+        const cc = CURRENCY_CONVENTION[form.currencyPair] ?? CURRENCY_CONVENTION['其他'];
+        return (
         <div style={{ ...cardStyle, marginTop: '1rem' }}>
           <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.125rem' }}>输出结果</h2>
           <div style={resultGrid}>
@@ -347,40 +378,92 @@ export function AmericanPricing() {
               <div style={{ fontWeight: 600 }}>{result.optionPrice.toFixed(6)}</div>
             </div>
             <div style={resultItem}>
-              <div style={{ color: '#666' }}>Premium（本币）</div>
+              <div style={{ color: '#666' }}>Premium（{cc.domestic}）</div>
               <div style={{ fontWeight: 600 }}>{result.premium.toFixed(2)}</div>
+            </div>
+            <div style={resultItem}>
+              <div style={{ color: '#666' }}>Premium（{cc.foreign}）</div>
+              <div style={{ fontWeight: 600 }}>{result.premiumForeign.toFixed(2)}</div>
+            </div>
+            <div style={resultItem}>
+              <div style={{ color: '#666' }}>Premium % of spot</div>
+              <div style={{ fontWeight: 600 }}>{result.premiumPct.toFixed(4)}%</div>
             </div>
             <div style={resultItem}>
               <div style={{ color: '#666' }}>提前行权价值（美式−欧式）</div>
               <div style={{ fontWeight: 600 }}>{result.earlyExercisePremium.toFixed(6)}</div>
             </div>
             <div style={resultItem}>
-              <div style={{ color: '#666' }}>Delta（每单位名义）</div>
+              <div style={{ color: '#666' }}>Delta</div>
               <div style={{ fontWeight: 600 }}>{result.delta.toFixed(6)}</div>
             </div>
             <div style={resultItem}>
-              <div style={{ color: '#666' }}>头寸 Delta（外币）</div>
-              <div style={{ fontWeight: 600 }}>{result.deltaPosition.toFixed(4)}</div>
+              <div style={{ color: '#666' }}>Delta头寸（{cc.foreign}）</div>
+              <div style={{ fontWeight: 600 }}>{result.deltaPosition.toFixed(2)}</div>
             </div>
             <div style={resultItem}>
-              <div style={{ color: '#666' }}>Gamma（每单位名义）</div>
+              <div style={{ color: '#666' }}>Gamma</div>
               <div style={{ fontWeight: 600 }}>{result.gamma.toFixed(6)}</div>
             </div>
             <div style={resultItem}>
-              <div style={{ color: '#666' }}>Vega（每单位名义，1% vol）</div>
+              <div style={{ color: '#666' }}>Gamma头寸（{cc.foreign}）</div>
+              <div style={{ fontWeight: 600 }}>{result.gammaPosition.toFixed(2)}</div>
+            </div>
+            <div style={resultItem}>
+              <div style={{ color: '#666' }}>Vega</div>
               <div style={{ fontWeight: 600 }}>{result.vega.toFixed(6)}</div>
             </div>
             <div style={resultItem}>
-              <div style={{ color: '#666' }}>头寸 Vega</div>
-              <div style={{ fontWeight: 600 }}>{result.vegaPosition.toFixed(4)}</div>
+              <div style={{ color: '#666' }}>Vega头寸（{cc.domestic}）</div>
+              <div style={{ fontWeight: 600 }}>{result.vegaPosition.toFixed(2)}</div>
             </div>
             <div style={resultItem}>
-              <div style={{ color: '#666' }}>Theta（1 天）</div>
+              <div style={{ color: '#666' }}>Vanna</div>
+              <div style={{ fontWeight: 600 }}>{result.vanna != null ? result.vanna.toFixed(6) : '—'}</div>
+            </div>
+            <div style={resultItem}>
+              <div style={{ color: '#666' }}>Vanna头寸（{cc.foreign}）</div>
+              <div style={{ fontWeight: 600 }}>{result.vannaPosition != null ? result.vannaPosition.toFixed(2) : '—'}</div>
+            </div>
+            <div style={resultItem}>
+              <div style={{ color: '#666' }}>Volga</div>
+              <div style={{ fontWeight: 600 }}>{result.volga != null ? result.volga.toFixed(6) : '—'}</div>
+            </div>
+            <div style={resultItem}>
+              <div style={{ color: '#666' }}>Volga头寸（{cc.domestic}）</div>
+              <div style={{ fontWeight: 600 }}>{result.volgaPosition != null ? result.volgaPosition.toFixed(2) : '—'}</div>
+            </div>
+            <div style={resultItem}>
+              <div style={{ color: '#666' }}>Time Decay</div>
+              <div style={{ fontWeight: 600 }}>{result.timeDecay != null ? result.timeDecay.toFixed(6) : '—'}</div>
+            </div>
+            <div style={resultItem}>
+              <div style={{ color: '#666' }}>Time Decay头寸（{cc.domestic}）</div>
+              <div style={{ fontWeight: 600 }}>{result.timeDecayPosition != null ? result.timeDecayPosition.toFixed(2) : '—'}</div>
+            </div>
+            <div style={resultItem}>
+              <div style={{ color: '#666' }}>Theta</div>
               <div style={{ fontWeight: 600 }}>{result.theta.toFixed(6)}</div>
             </div>
             <div style={resultItem}>
-              <div style={{ color: '#666' }}>头寸 Theta（本币/天）</div>
-              <div style={{ fontWeight: 600 }}>{result.thetaPosition.toFixed(4)}</div>
+              <div style={{ color: '#666' }}>Theta头寸（{cc.domestic}）</div>
+              <div style={{ fontWeight: 600 }}>{result.thetaPosition.toFixed(2)}</div>
+            </div>
+            <div style={resultItem}>
+              <div style={{ color: '#666' }}>Phi（Rho_f）</div>
+              <div style={{ fontWeight: 600 }}>{result.phi != null ? result.phi.toFixed(6) : '—'}</div>
+            </div>
+            <div style={resultItem}>
+              <div style={{ color: '#666' }}>Phi头寸（{cc.domestic}）</div>
+              <div style={{ fontWeight: 600 }}>{result.phiPosition != null ? result.phiPosition.toFixed(2) : '—'}</div>
+            </div>
+            <div style={resultItem}>
+              <div style={{ color: '#666' }}>Rho（Rho_d）</div>
+              <div style={{ fontWeight: 600 }}>{result.rho != null ? result.rho.toFixed(6) : '—'}</div>
+            </div>
+            <div style={resultItem}>
+              <div style={{ color: '#666' }}>Rho头寸（{cc.domestic}）</div>
+              <div style={{ fontWeight: 600 }}>{result.rhoPosition != null ? result.rhoPosition.toFixed(2) : '—'}</div>
             </div>
           </div>
 
@@ -410,7 +493,8 @@ export function AmericanPricing() {
             </div>
           )}
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

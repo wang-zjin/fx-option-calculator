@@ -206,7 +206,10 @@ function americanCallPrice(params: AmericanParams, steps: number): number {
 
 // ---------- 数值 Greeks ----------
 
-const BUMP_S_PCT = 0.001;
+/** S 的 bump：0.00001（即 S 的十万分之一） */
+const BUMP_S_PCT = 0.00001;
+/** 波动率 σ 的 bump：0.0001（即 1bp） */
+const BUMP_SIGMA = 0.0001;
 
 function priceAmericanPutRaw(
   params: AmericanParams,
@@ -259,14 +262,16 @@ function gammaNumerical(
   const priceC = optionType === 'call'
     ? priceAmericanCallRaw(params, steps)
     : priceAmericanPutRaw(params, steps).price;
-  return (priceUp - 2 * priceC + priceDown) / (h * h);
+  const gammaRaw = (priceUp - 2 * priceC + priceDown) / (h * h);
+  return gammaRaw * 0.01 * params.S;
 }
 
+/** Vega：∂V/∂σ，按 1% 波动率变化（与 Vanilla 一致，除以 100） */
 function vegaNumerical(
   params: AmericanParams,
   optionType: OptionType,
   steps: number,
-  bumpSigma: number = 0.01
+  bumpSigma: number = BUMP_SIGMA
 ): number {
   const up = { ...params, sigma: params.sigma + bumpSigma };
   const priceUp =
@@ -277,7 +282,8 @@ function vegaNumerical(
     optionType === 'call'
       ? priceAmericanCallRaw(params, steps)
       : priceAmericanPutRaw(params, steps).price;
-  return (priceUp - priceC) / bumpSigma;
+  const vegaRaw = (priceUp - priceC) / bumpSigma;
+  return vegaRaw / 100;
 }
 
 function thetaNumerical(
@@ -301,6 +307,89 @@ function thetaNumerical(
   return (priceDown - priceC) / bumpDay;
 }
 
+/** Vanna：∂²V/(∂S∂σ)，按 1% vol（与 Vanilla 一致，除以 100） */
+function vannaNumerical(
+  params: AmericanParams,
+  optionType: OptionType,
+  steps: number,
+  hPct: number = BUMP_S_PCT,
+  bumpSigma: number = BUMP_SIGMA
+): number {
+  const h = params.S * hPct;
+  const sigmaDown = Math.max(params.sigma - bumpSigma, 1e-6);
+  const pp = { ...params, S: params.S + h, sigma: params.sigma + bumpSigma };
+  const pm = { ...params, S: params.S - h, sigma: params.sigma + bumpSigma };
+  const mp = { ...params, S: params.S + h, sigma: sigmaDown };
+  const mm = { ...params, S: params.S - h, sigma: sigmaDown };
+  const price = (p: AmericanParams) =>
+    optionType === 'call' ? priceAmericanCallRaw(p, steps) : priceAmericanPutRaw(p, steps).price;
+  const vannaRaw = (price(pp) - price(pm) - price(mp) + price(mm)) / (4 * h * bumpSigma);
+  return vannaRaw / 100;
+}
+
+/** Volga：∂²V/∂σ²，按 1% vol（与 Vanilla 一致，除以 100） */
+function volgaNumerical(
+  params: AmericanParams,
+  optionType: OptionType,
+  steps: number,
+  bumpSigma: number = BUMP_SIGMA
+): number {
+  const sigmaDown = Math.max(params.sigma - bumpSigma, 1e-6);
+  const up = { ...params, sigma: params.sigma + bumpSigma };
+  const down = { ...params, sigma: sigmaDown };
+  const priceUp = optionType === 'call' ? priceAmericanCallRaw(up, steps) : priceAmericanPutRaw(up, steps).price;
+  const priceDown = optionType === 'call' ? priceAmericanCallRaw(down, steps) : priceAmericanPutRaw(down, steps).price;
+  const priceC = optionType === 'call' ? priceAmericanCallRaw(params, steps) : priceAmericanPutRaw(params, steps).price;
+  const volgaRaw = (priceUp - 2 * priceC + priceDown) / (bumpSigma * bumpSigma);
+  return volgaRaw / 100;
+}
+
+/** Time Decay：Bump T ±1 天，(V(T−1/365)−V(T+1/365))/2，与 Vanilla Bump T1 一致 */
+function timeDecayBumpNumerical(
+  params: AmericanParams,
+  optionType: OptionType,
+  steps: number
+): number {
+  const dt = 1 / 365;
+  const TUp = params.T + dt;
+  const TDown = Math.max(1e-6, params.T - dt);
+  const stepsUp = Math.max(2, Math.round((TUp / params.T) * steps));
+  const stepsDown = Math.max(2, Math.round((TDown / params.T) * steps));
+  const paramsUp = { ...params, T: TUp };
+  const paramsDown = { ...params, T: TDown };
+  const priceUp = optionType === 'call' ? priceAmericanCallRaw(paramsUp, stepsUp) : priceAmericanPutRaw(paramsUp, stepsUp).price;
+  const priceDown = optionType === 'call' ? priceAmericanCallRaw(paramsDown, stepsDown) : priceAmericanPutRaw(paramsDown, stepsDown).price;
+  return (priceDown - priceUp) / 2;
+}
+
+/** Rho_d：∂V/∂r_d，按 1% 利率（与 Vanilla 一致，除以 100） */
+function rhoDNumerical(
+  params: AmericanParams,
+  optionType: OptionType,
+  steps: number,
+  bumpR: number = 0.01
+): number {
+  const up = { ...params, r_d: params.r_d + bumpR };
+  const priceUp = optionType === 'call' ? priceAmericanCallRaw(up, steps) : priceAmericanPutRaw(up, steps).price;
+  const priceC = optionType === 'call' ? priceAmericanCallRaw(params, steps) : priceAmericanPutRaw(params, steps).price;
+  const raw = (priceUp - priceC) / bumpR;
+  return raw / 100;
+}
+
+/** Rho_f（Phi）：∂V/∂r_f，按 1% 利率（与 Vanilla 一致，除以 100） */
+function rhoFNumerical(
+  params: AmericanParams,
+  optionType: OptionType,
+  steps: number,
+  bumpR: number = 0.01
+): number {
+  const up = { ...params, r_f: params.r_f + bumpR };
+  const priceUp = optionType === 'call' ? priceAmericanCallRaw(up, steps) : priceAmericanPutRaw(up, steps).price;
+  const priceC = optionType === 'call' ? priceAmericanCallRaw(params, steps) : priceAmericanPutRaw(params, steps).price;
+  const raw = (priceUp - priceC) / bumpR;
+  return raw / 100;
+}
+
 // ---------- 对外 API ----------
 
 export function priceAmericanPut(params: AmericanParams): AmericanResult {
@@ -314,6 +403,11 @@ export function priceAmericanPut(params: AmericanParams): AmericanResult {
     gamma: gammaNumerical(params, 'put', steps),
     vega: vegaNumerical(params, 'put', steps),
     theta: thetaNumerical(params, 'put', steps),
+    vanna: vannaNumerical(params, 'put', steps),
+    volga: volgaNumerical(params, 'put', steps),
+    timeDecayBump: timeDecayBumpNumerical(params, 'put', steps),
+    rho_d: rhoDNumerical(params, 'put', steps),
+    rho_f: rhoFNumerical(params, 'put', steps),
   };
   if (boundary?.length) result.earlyExerciseBoundary = boundary;
   return result;
@@ -330,6 +424,11 @@ export function priceAmericanCall(params: AmericanParams): AmericanResult {
     gamma: gammaNumerical(params, 'call', steps),
     vega: vegaNumerical(params, 'call', steps),
     theta: thetaNumerical(params, 'call', steps),
+    vanna: vannaNumerical(params, 'call', steps),
+    volga: volgaNumerical(params, 'call', steps),
+    timeDecayBump: timeDecayBumpNumerical(params, 'call', steps),
+    rho_d: rhoDNumerical(params, 'call', steps),
+    rho_f: rhoFNumerical(params, 'call', steps),
   };
 }
 

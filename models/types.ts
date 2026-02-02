@@ -91,9 +91,19 @@ export interface AmericanResult {
   /** 与欧式价格差（提前行权价值） */
   earlyExercisePremium?: number;
   delta?: number;
-  gamma?: number;   // 数值，∂²V/∂S²
-  vega?: number;   // 数值，按 1% 波动率
-  theta?: number;  // 数值，按 1 天
+  gamma?: number;   // 数值，即期 1% 时 Delta 变化
+  vega?: number;    // 数值，按 1% 波动率
+  theta?: number;   // 数值，按 1 天
+  /** Vanna：∂²V/(∂S∂σ)，按 1% vol，数值 */
+  vanna?: number;
+  /** Volga：∂²V/∂σ²，按 1% vol，数值 */
+  volga?: number;
+  /** Time Decay：Bump T ±1 天 */
+  timeDecayBump?: number;
+  /** Rho_d：∂V/∂r_d，按 1% 利率，数值 */
+  rho_d?: number;
+  /** Rho_f：∂V/∂r_f，按 1% 利率，数值 */
+  rho_f?: number;
   /** 早期行权边界（美式看跌可选），(t, S*) 数组 */
   earlyExerciseBoundary?: EarlyExerciseBoundaryPoint[];
 }

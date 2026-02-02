@@ -8,6 +8,7 @@ import {
   validateRRInput,
   validateSeagullInput,
 } from '../utils/validation';
+import { DateInput } from '../components/DateInput';
 import { CURRENCY_PAIRS, CURRENCY_TEMPLATES, CURRENCY_CONVENTION } from '../constants/currencyTemplates';
 import { getCombinationForm, setCombinationForm, getCombinationForms, setCombinationForms } from '../utils/persistForm';
 
@@ -104,13 +105,16 @@ export function CombinationPricing() {
     delta: number;
     deltaPosition: number;
     gamma: number;
+    gammaPosition: number;
     vega: number;
     vegaPosition: number;
     theta: number;
     timeDecayBump: number;
     thetaPosition: number;
     phi: number;
+    phiPosition: number;
     rho: number;
+    rhoPosition: number;
     legs?: Array<{ label: string; price: number; delta: number; gamma: number; vega: number; theta: number; rho_d: number; rho_f: number }>;
   } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -205,13 +209,16 @@ export function CombinationPricing() {
           delta: res.delta,
           deltaPosition: res.delta * shared.notional,
           gamma: res.gamma,
+          gammaPosition: res.gamma * shared.notional,
           vega: res.vega,
           vegaPosition: res.vega * shared.notional,
           theta: res.theta,
           timeDecayBump: timeDecay,
           thetaPosition: res.theta * shared.notional,
           phi: res.rho_f,
+          phiPosition: res.rho_f * shared.notional,
           rho: res.rho_d,
+          rhoPosition: res.rho_d * shared.notional,
           legs: res.legs,
         });
       } catch (err) {
@@ -325,22 +332,20 @@ export function CombinationPricing() {
             </div>
             <div style={fieldStyle}>
               <label style={labelStyle}>当前日期</label>
-              <input type="date" style={inputStyle} value={shared.today} onChange={(e) => updateShared('today', e.target.value)} />
+              <DateInput value={shared.today} onChange={(v) => updateShared('today', v)} />
               {errors.today && <span style={errorStyle}>{errors.today}</span>}
             </div>
             <div style={fieldStyle}>
               <label style={labelStyle}>起息日</label>
-              <input type="date" style={inputStyle} value={shared.premiumDate} onChange={(e) => updateShared('premiumDate', e.target.value)} />
+              <DateInput value={shared.premiumDate} onChange={(v) => updateShared('premiumDate', v)} />
               {errors.premiumDate && <span style={errorStyle}>{errors.premiumDate}</span>}
             </div>
             <div style={fieldStyle}>
               <label style={labelStyle}>到期日</label>
-              <input
-                type="text"
-                style={inputStyle}
-                placeholder="YYYY-MM-DD 或 1M、1Y"
+              <DateInput
+                maturityMode
                 value={shared.maturityDate}
-                onChange={(e) => updateShared('maturityDate', e.target.value)}
+                onChange={(v) => updateShared('maturityDate', v)}
                 onBlur={() => {
                   let resolved = resolveMaturityDate(shared.today, shared.maturityDate);
                   if (resolved !== shared.maturityDate && isDateString(resolved)) {
@@ -348,18 +353,13 @@ export function CombinationPricing() {
                     setShared((s) => ({ ...s, maturityDate: resolved, settlementDate: addTradingDays(resolved, 2) }));
                   }
                 }}
+                title="日期如 2026-02-27，或 1M（1个月后）、1Y（1年后）等"
               />
               {errors.maturityDate && <span style={errorStyle}>{errors.maturityDate}</span>}
             </div>
             <div style={fieldStyle}>
               <label style={labelStyle}>交割日</label>
-              <input
-                type="date"
-                style={inputStyle}
-                value={shared.settlementDate}
-                onChange={(e) => updateShared('settlementDate', e.target.value)}
-                title="通常为到期日 + 2 个交易日；修改到期日时会自动更新"
-              />
+              <DateInput value={shared.settlementDate} onChange={(v) => updateShared('settlementDate', v)} title="通常为到期日 + 2 个交易日；修改到期日时会自动更新" />
               {errors.settlementDate && <span style={errorStyle}>{errors.settlementDate}</span>}
             </div>
             <div style={fieldStyle}>
@@ -509,7 +509,7 @@ export function CombinationPricing() {
               <div style={{ fontWeight: 600 }}>{result.delta.toFixed(6)}</div>
             </div>
             <div style={resultItem}>
-              <div style={{ color: '#666' }}>头寸 Delta（{cc.foreign}）</div>
+              <div style={{ color: '#666' }}>Delta头寸（{cc.foreign}）</div>
               <div style={{ fontWeight: 600 }}>{result.deltaPosition.toFixed(2)}</div>
             </div>
             <div style={resultItem}>
@@ -517,11 +517,15 @@ export function CombinationPricing() {
               <div style={{ fontWeight: 600 }}>{result.gamma.toFixed(6)}</div>
             </div>
             <div style={resultItem}>
+              <div style={{ color: '#666' }}>Gamma头寸（{cc.foreign}）</div>
+              <div style={{ fontWeight: 600 }}>{result.gammaPosition.toFixed(2)}</div>
+            </div>
+            <div style={resultItem}>
               <div style={{ color: '#666' }}>Vega</div>
               <div style={{ fontWeight: 600 }}>{result.vega.toFixed(6)}</div>
             </div>
             <div style={resultItem}>
-              <div style={{ color: '#666' }}>头寸 Vega（{cc.domestic}）</div>
+              <div style={{ color: '#666' }}>Vega头寸（{cc.domestic}）</div>
               <div style={{ fontWeight: 600 }}>{result.vegaPosition.toFixed(2)}</div>
             </div>
             <div style={resultItem}>
@@ -533,7 +537,7 @@ export function CombinationPricing() {
               <div style={{ fontWeight: 600 }}>{result.timeDecayBump.toFixed(6)}</div>
             </div>
             <div style={resultItem}>
-              <div style={{ color: '#666' }}>头寸 Theta（{cc.domestic}）</div>
+              <div style={{ color: '#666' }}>Theta头寸（{cc.domestic}）</div>
               <div style={{ fontWeight: 600 }}>{result.thetaPosition.toFixed(2)}</div>
             </div>
             <div style={resultItem}>
@@ -541,8 +545,16 @@ export function CombinationPricing() {
               <div style={{ fontWeight: 600 }}>{result.phi.toFixed(6)}</div>
             </div>
             <div style={resultItem}>
+              <div style={{ color: '#666' }}>Phi头寸（{cc.domestic}）</div>
+              <div style={{ fontWeight: 600 }}>{result.phiPosition.toFixed(2)}</div>
+            </div>
+            <div style={resultItem}>
               <div style={{ color: '#666' }}>Rho (Rho_d)</div>
               <div style={{ fontWeight: 600 }}>{result.rho.toFixed(6)}</div>
+            </div>
+            <div style={resultItem}>
+              <div style={{ color: '#666' }}>Rho头寸（{cc.domestic}）</div>
+              <div style={{ fontWeight: 600 }}>{result.rhoPosition.toFixed(2)}</div>
             </div>
           </div>
           {result.legs && result.legs.length > 0 && (

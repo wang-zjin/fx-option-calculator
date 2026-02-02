@@ -4,7 +4,8 @@ import type { DigitalParams, DigitalResult, OptionType, LongOrShort } from '@mod
 import { t1Years, t2Years, todayString, addMonths, resolveMaturityDate } from '../utils/dateUtils';
 import { addTradingDays, toPreviousTradingDay } from '../utils/tradingCalendar';
 import { validateDigitalInput } from '../utils/validation';
-import { CURRENCY_PAIRS, CURRENCY_TEMPLATES } from '../constants/currencyTemplates';
+import { DateInput } from '../components/DateInput';
+import { CURRENCY_PAIRS, CURRENCY_TEMPLATES, CURRENCY_CONVENTION } from '../constants/currencyTemplates';
 
 type DigitalKind = 'cashOrNothing' | 'assetOrNothing';
 type PayoffCurrency = 'domestic' | 'foreign';
@@ -85,6 +86,7 @@ export function DigitalPricing() {
     delta: number;
     deltaPosition: number;
     gamma: number | undefined;
+    gammaPosition: number | undefined;
     vega: number | undefined;
     vegaPosition: number | undefined;
     theta: number | undefined;
@@ -141,6 +143,7 @@ export function DigitalPricing() {
           delta: raw.delta ?? 0,
           deltaPosition: (raw.delta ?? 0) * form.notional * sign,
           gamma: raw.gamma,
+          gammaPosition: raw.gamma != null ? raw.gamma * form.notional * sign : undefined,
           vega: raw.vega,
           vegaPosition: raw.vega != null ? raw.vega * form.notional * sign : undefined,
           theta: raw.theta,
@@ -174,22 +177,22 @@ export function DigitalPricing() {
             </div>
             <div style={fieldStyle}>
               <label style={labelStyle}>当前日期</label>
-              <input type="date" style={inputStyle} value={form.today} onChange={(e) => update('today', e.target.value)} />
+              <DateInput value={form.today} onChange={(v) => update('today', v)} />
               {errors.today && <span style={errorStyle}>{errors.today}</span>}
             </div>
             <div style={fieldStyle}>
               <label style={labelStyle}>起息日</label>
-              <input type="date" style={inputStyle} value={form.premiumDate} onChange={(e) => update('premiumDate', e.target.value)} />
+              <DateInput value={form.premiumDate} onChange={(v) => update('premiumDate', v)} />
               {errors.premiumDate && <span style={errorStyle}>{errors.premiumDate}</span>}
             </div>
             <div style={fieldStyle}>
               <label style={labelStyle}>到期日</label>
-              <input type="text" style={inputStyle} placeholder="YYYY-MM-DD 或 1M、1Y" value={form.maturityDate} onChange={(e) => update('maturityDate', e.target.value)} />
+              <DateInput maturityMode value={form.maturityDate} onChange={(v) => update('maturityDate', v)} title="日期如 2026-02-27，或 1M、1Y 等" />
               {errors.maturityDate && <span style={errorStyle}>{errors.maturityDate}</span>}
             </div>
             <div style={fieldStyle}>
               <label style={labelStyle}>交割日</label>
-              <input type="date" style={inputStyle} value={form.settlementDate} onChange={(e) => update('settlementDate', e.target.value)} />
+              <DateInput value={form.settlementDate} onChange={(v) => update('settlementDate', v)} />
               {errors.settlementDate && <span style={errorStyle}>{errors.settlementDate}</span>}
             </div>
             <div style={fieldStyle}>
@@ -292,7 +295,9 @@ export function DigitalPricing() {
 
       {calcError && <div style={{ ...cardStyle, marginTop: '1rem', color: '#c00' }}>{calcError}</div>}
 
-      {result && !calcError && (
+      {result && !calcError && (() => {
+        const cc = CURRENCY_CONVENTION[form.currencyPair] ?? CURRENCY_CONVENTION['其他'];
+        return (
         <div style={{ ...cardStyle, marginTop: '1rem' }}>
           <h2 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1.125rem' }}>输出结果</h2>
           <div style={resultGrid}>
@@ -301,7 +306,7 @@ export function DigitalPricing() {
               <div style={{ fontWeight: 600 }}>{result.optionPrice.toFixed(6)}</div>
             </div>
             <div style={resultItem}>
-              <div style={{ color: '#666' }}>Premium（本币）</div>
+              <div style={{ color: '#666' }}>Premium（{cc.domestic}）</div>
               <div style={{ fontWeight: 600 }}>{result.premium.toFixed(2)}</div>
             </div>
             <div style={resultItem}>
@@ -309,36 +314,41 @@ export function DigitalPricing() {
               <div style={{ fontWeight: 600 }}>{result.premiumPct.toFixed(4)}%</div>
             </div>
             <div style={resultItem}>
-              <div style={{ color: '#666' }}>Delta（每单位名义）</div>
+              <div style={{ color: '#666' }}>Delta</div>
               <div style={{ fontWeight: 600 }}>{result.delta.toFixed(6)}</div>
             </div>
             <div style={resultItem}>
-              <div style={{ color: '#666' }}>头寸 Delta（外币）</div>
+              <div style={{ color: '#666' }}>Delta头寸（{cc.foreign}）</div>
               <div style={{ fontWeight: 600 }}>{result.deltaPosition.toFixed(4)}</div>
             </div>
             <div style={resultItem}>
-              <div style={{ color: '#666' }}>Gamma（每单位名义）</div>
+              <div style={{ color: '#666' }}>Gamma</div>
               <div style={{ fontWeight: 600 }}>{result.gamma != null ? result.gamma.toFixed(6) : '—'}</div>
             </div>
             <div style={resultItem}>
-              <div style={{ color: '#666' }}>Vega（每单位名义，1% vol）</div>
+              <div style={{ color: '#666' }}>Gamma头寸（{cc.foreign}）</div>
+              <div style={{ fontWeight: 600 }}>{result.gammaPosition != null ? result.gammaPosition.toFixed(4) : '—'}</div>
+            </div>
+            <div style={resultItem}>
+              <div style={{ color: '#666' }}>Vega</div>
               <div style={{ fontWeight: 600 }}>{result.vega != null ? result.vega.toFixed(6) : '—'}</div>
             </div>
             <div style={resultItem}>
-              <div style={{ color: '#666' }}>头寸 Vega</div>
+              <div style={{ color: '#666' }}>Vega头寸（{cc.domestic}）</div>
               <div style={{ fontWeight: 600 }}>{result.vegaPosition != null ? result.vegaPosition.toFixed(4) : '—'}</div>
             </div>
             <div style={resultItem}>
-              <div style={{ color: '#666' }}>Theta（1 天）</div>
+              <div style={{ color: '#666' }}>Theta</div>
               <div style={{ fontWeight: 600 }}>{result.theta != null ? result.theta.toFixed(6) : '—'}</div>
             </div>
             <div style={resultItem}>
-              <div style={{ color: '#666' }}>头寸 Theta（本币/天）</div>
+              <div style={{ color: '#666' }}>Theta头寸（{cc.domestic}）</div>
               <div style={{ fontWeight: 600 }}>{result.thetaPosition != null ? result.thetaPosition.toFixed(4) : '—'}</div>
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

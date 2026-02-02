@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { priceAndGreeks } from '@models';
 import type { GKParams, OptionType, LongOrShort } from '@models';
 import { t1Years, t2Years, todayString, addMonths, resolveMaturityDate, isDateString } from '../utils/dateUtils';
+import { DateInput } from '../components/DateInput';
 import { addTradingDays, toPreviousTradingDay } from '../utils/tradingCalendar';
 import { validateVanillaInput } from '../utils/validation';
 import { CURRENCY_PAIRS, CURRENCY_TEMPLATES, CURRENCY_CONVENTION } from '../constants/currencyTemplates';
@@ -82,16 +83,22 @@ export function VanillaPricing() {
     deltaSigned: number;
     deltaPosition: number;
     gamma: number;
+    gammaPosition: number;
     vega: number;
     vegaSigned: number;
     vegaPosition: number;
     vanna: number;
+    vannaPosition: number;
     volga: number;
+    volgaPosition: number;
     timeDecay: number;
     timeDecayPosition: number;
     phi: number;
+    phiPosition: number;
     rho: number;
+    rhoPosition: number;
     theta: number;
+    thetaPosition: number;
   } | null>(null);
   const [loading, setLoading] = useState(false);
   const [calcError, setCalcError] = useState<string | null>(null);
@@ -152,16 +159,22 @@ export function VanillaPricing() {
           deltaSigned: raw.delta * sign,
           deltaPosition: raw.delta * form.notional * sign,
           gamma: raw.gamma,
+          gammaPosition: raw.gamma * form.notional * sign,
           vega: raw.vega,
           vegaSigned: raw.vega * sign,
           vegaPosition: raw.vega * form.notional * sign,
           vanna: raw.vanna ?? 0,
+          vannaPosition: (raw.vanna ?? 0) * form.notional * sign,
           volga: raw.volga ?? 0,
+          volgaPosition: (raw.volga ?? 0) * form.notional * sign,
           timeDecay: timeDecayBump,
           timeDecayPosition: timeDecayBump * form.notional * sign,
           phi: raw.rho_f ?? 0,
+          phiPosition: (raw.rho_f ?? 0) * form.notional * sign,
           rho: raw.rho_d ?? 0,
+          rhoPosition: (raw.rho_d ?? 0) * form.notional * sign,
           theta: raw.theta,
+          thetaPosition: raw.theta * form.notional * sign,
         });
       } catch (err) {
         setCalcError(err instanceof Error ? err.message : '计算失败');
@@ -245,31 +258,20 @@ export function VanillaPricing() {
           </div>
           <div style={fieldStyle}>
             <label style={labelStyle}>当前日期</label>
-            <input
-              type="date"
-              style={inputStyle}
-              value={form.today}
-              onChange={(e) => update('today', e.target.value)}
-            />
+            <DateInput value={form.today} onChange={(v) => update('today', v)} />
             {errors.today && <span style={errorStyle}>{errors.today}</span>}
           </div>
           <div style={fieldStyle}>
             <label style={labelStyle}>起息日</label>
-            <input
-              type="date"
-              style={inputStyle}
-              value={form.premiumDate}
-              onChange={(e) => update('premiumDate', e.target.value)}
-            />
+            <DateInput value={form.premiumDate} onChange={(v) => update('premiumDate', v)} />
             {errors.premiumDate && <span style={errorStyle}>{errors.premiumDate}</span>}
           </div>
           <div style={fieldStyle}>
             <label style={labelStyle}>到期日</label>
-            <input
-              type="text"
-              style={inputStyle}
+            <DateInput
+              maturityMode
               value={form.maturityDate}
-              onChange={(e) => update('maturityDate', e.target.value)}
+              onChange={(v) => update('maturityDate', v)}
               onBlur={() => {
                 let resolved = resolveMaturityDate(form.today, form.maturityDate);
                 if (resolved !== form.maturityDate && isDateString(resolved)) {
@@ -277,19 +279,13 @@ export function VanillaPricing() {
                   setForm((f) => ({ ...f, maturityDate: resolved, settlementDate: addTradingDays(resolved, 2) }));
                 }
               }}
-              placeholder="YYYY-MM-DD 或 1M、1Y"
               title="日期如 2026-02-27，或 1M（1个月后）、1Y（1年后）等"
             />
             {errors.maturityDate && <span style={errorStyle}>{errors.maturityDate}</span>}
           </div>
           <div style={fieldStyle}>
             <label style={labelStyle}>交割日</label>
-            <input
-              type="date"
-              style={inputStyle}
-              value={form.settlementDate}
-              onChange={(e) => update('settlementDate', e.target.value)}
-            />
+            <DateInput value={form.settlementDate} onChange={(v) => update('settlementDate', v)} title="通常为到期日 + 2 个交易日；修改到期日时会自动更新" />
             {errors.settlementDate && <span style={errorStyle}>{errors.settlementDate}</span>}
           </div>
           <div style={fieldStyle}>
@@ -439,7 +435,7 @@ export function VanillaPricing() {
               <div style={{ fontWeight: 600 }}>{result.deltaSigned.toFixed(6)}</div>
             </div>
             <div style={resultItem}>
-              <div style={{ color: '#666' }}>头寸 Delta（{cc.foreign}）</div>
+              <div style={{ color: '#666' }}>Delta头寸（{cc.foreign}）</div>
               <div style={{ fontWeight: 600 }}>{result.deltaPosition.toFixed(2)}</div>
             </div>
             <div style={resultItem}>
@@ -447,11 +443,15 @@ export function VanillaPricing() {
               <div style={{ fontWeight: 600 }}>{result.gamma.toFixed(6)}</div>
             </div>
             <div style={resultItem}>
+              <div style={{ color: '#666' }}>Gamma头寸（{cc.foreign}）</div>
+              <div style={{ fontWeight: 600 }}>{result.gammaPosition.toFixed(2)}</div>
+            </div>
+            <div style={resultItem}>
               <div style={{ color: '#666' }}>Vega</div>
               <div style={{ fontWeight: 600 }}>{result.vegaSigned.toFixed(6)}</div>
             </div>
             <div style={resultItem}>
-              <div style={{ color: '#666' }}>Vega（{cc.domestic}）</div>
+              <div style={{ color: '#666' }}>Vega头寸（{cc.domestic}）</div>
               <div style={{ fontWeight: 600 }}>{result.vegaPosition.toFixed(2)}</div>
             </div>
             <div style={resultItem}>
@@ -459,28 +459,48 @@ export function VanillaPricing() {
               <div style={{ fontWeight: 600 }}>{result.vanna.toFixed(6)}</div>
             </div>
             <div style={resultItem}>
+              <div style={{ color: '#666' }}>Vanna头寸（{cc.foreign}）</div>
+              <div style={{ fontWeight: 600 }}>{result.vannaPosition.toFixed(2)}</div>
+            </div>
+            <div style={resultItem}>
               <div style={{ color: '#666' }}>Volga</div>
               <div style={{ fontWeight: 600 }}>{result.volga.toFixed(6)}</div>
+            </div>
+            <div style={resultItem}>
+              <div style={{ color: '#666' }}>Volga头寸（{cc.domestic}）</div>
+              <div style={{ fontWeight: 600 }}>{result.volgaPosition.toFixed(2)}</div>
             </div>
             <div style={resultItem}>
               <div style={{ color: '#666' }}>Time Decay</div>
               <div style={{ fontWeight: 600 }}>{result.timeDecay.toFixed(6)}</div>
             </div>
             <div style={resultItem}>
-              <div style={{ color: '#666' }}>Time Decay头寸</div>
+              <div style={{ color: '#666' }}>Time Decay头寸（{cc.domestic}）</div>
               <div style={{ fontWeight: 600 }}>{result.timeDecayPosition.toFixed(2)}</div>
+            </div>
+            <div style={resultItem}>
+              <div style={{ color: '#666' }}>Theta</div>
+              <div style={{ fontWeight: 600 }}>{result.theta.toFixed(6)}</div>
+            </div>
+            <div style={resultItem}>
+              <div style={{ color: '#666' }}>Theta头寸（{cc.domestic}）</div>
+              <div style={{ fontWeight: 600 }}>{result.thetaPosition.toFixed(2)}</div>
             </div>
             <div style={resultItem}>
               <div style={{ color: '#666' }}>Phi（Rho_f）</div>
               <div style={{ fontWeight: 600 }}>{result.phi.toFixed(6)}</div>
             </div>
             <div style={resultItem}>
+              <div style={{ color: '#666' }}>Phi头寸（{cc.domestic}）</div>
+              <div style={{ fontWeight: 600 }}>{result.phiPosition.toFixed(2)}</div>
+            </div>
+            <div style={resultItem}>
               <div style={{ color: '#666' }}>Rho（Rho_d）</div>
               <div style={{ fontWeight: 600 }}>{result.rho.toFixed(6)}</div>
             </div>
             <div style={resultItem}>
-              <div style={{ color: '#666' }}>Theta（1 天）</div>
-              <div style={{ fontWeight: 600 }}>{result.theta.toFixed(6)}</div>
+              <div style={{ color: '#666' }}>Rho头寸（{cc.domestic}）</div>
+              <div style={{ fontWeight: 600 }}>{result.rhoPosition.toFixed(2)}</div>
             </div>
           </div>
         </div>

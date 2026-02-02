@@ -3,7 +3,7 @@
  * 切换货币对时填入即期、执行价、利率、波动率、名义本金等，便于只改尾数
  */
 
-export const CURRENCY_PAIRS = ['EURUSD', 'USDJPY', 'GBPUSD', 'AUDUSD', 'USDCNY', '其他'] as const;
+export const CURRENCY_PAIRS = ['EURUSD', 'USDJPY', 'GBPUSD', 'AUDUSD', 'USDCNY', 'USDHKD', '其他'] as const;
 
 export type CurrencyTemplate = {
   spot: number;
@@ -20,6 +20,7 @@ export const CURRENCY_TEMPLATES: Record<string, CurrencyTemplate> = {
   GBPUSD: { spot: 1.27, strike: 1.26, r_d: 0.045, r_f: 0.04, sigma: 0.07, notional: 1_000_000 },
   AUDUSD: { spot: 0.655, strike: 0.65, r_d: 0.045, r_f: 0.04, sigma: 0.09, notional: 1_000_000 },
   USDCNY: { spot: 7.25, strike: 7.20, r_d: 0.0155, r_f: 0.035, sigma: 0.025, notional: 1_000_000 },
+  USDHKD: { spot: 7.82, strike: 7.80, r_d: 0.04, r_f: 0.04, sigma: 0.015, notional: 1_000_000 },
   其他: { spot: 1, strike: 1, r_d: 0.03, r_f: 0.02, sigma: 0.05, notional: 1_000_000 },
 };
 
@@ -30,5 +31,6 @@ export const CURRENCY_CONVENTION: Record<string, { domestic: string; foreign: st
   GBPUSD: { domestic: 'USD', foreign: 'GBP' },
   AUDUSD: { domestic: 'USD', foreign: 'AUD' },
   USDCNY: { domestic: 'CNY', foreign: 'USD' },
+  USDHKD: { domestic: 'HKD', foreign: 'USD' },
   其他: { domestic: '本币', foreign: '外币' },
 };

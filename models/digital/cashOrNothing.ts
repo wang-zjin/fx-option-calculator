@@ -199,10 +199,14 @@ export function deltaDigital(params: DigitalParams, optionType: OptionType): num
     : deltaCashDomestic(params, optionType);
 }
 
+/** Gamma：即期变动 1% 时 Delta 的变化；内部为 ∂²V/∂S²，出口乘以 0.01×S */
 export function gammaDigital(params: DigitalParams, optionType: OptionType): number | undefined {
-  if (params.digitalKind === 'assetOrNothing') return gammaAssetOrNothing(params);
-  if (params.payoffCurrency === 'foreign') return undefined; // 可选后续补充
-  return gammaCashDomestic(params, optionType);
+  const { S } = params;
+  let raw: number | undefined;
+  if (params.digitalKind === 'assetOrNothing') raw = gammaAssetOrNothing(params);
+  else if (params.payoffCurrency === 'foreign') return undefined; // 可选后续补充
+  else raw = gammaCashDomestic(params, optionType);
+  return raw * 0.01 * S;
 }
 
 export function vegaDigital(params: DigitalParams): number | undefined {

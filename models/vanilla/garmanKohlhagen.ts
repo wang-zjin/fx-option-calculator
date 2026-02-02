@@ -48,14 +48,14 @@ export function delta(params: GKParams, optionType: OptionType): number {
   return D_f * (normalCdf(_d1) - 1);
 }
 
-/** Gamma：∂²V/∂S²，按 1% 即期变化（与 Fenics 等一致，除以 100） */
+/** Gamma：即期变动 1% 时 Delta 的变化。Γ_raw = ∂²V/∂S²，Gamma = Γ_raw × 0.01×S，与Fenics一致*/
 export function gamma(params: GKParams): number {
   const { S, r_f, sigma, T } = params;
   const D_f = discountForeign(r_f, discountT(params));
   const sigmaSqrtT = sigma * Math.sqrt(T);
   if (sigmaSqrtT === 0) return 0;
   const gammaRaw = (D_f * normalPdf(d1(params))) / (S * sigmaSqrtT);
-  return gammaRaw / 100;
+  return gammaRaw * 0.01 * S;
 }
 
 /** Vega：∂V/∂σ，按 1% 波动率变化（与 Fenics 一致：spot*n(d1)*sqrt(T)*exp(-r_f*T2)/100） */
@@ -67,14 +67,14 @@ export function vega(params: GKParams): number {
   return vegaRaw / 100;
 }
 
-/** Vanna：∂²V/(∂S∂σ)，按 1% vol；看涨看跌公式相同；与 Vega/Gamma 一致除以 100 */
+/** Vanna：∂²V/(∂S∂σ) = ∂Vega/∂S；解析式 = -D_f·φ(d1)·d2/σ（看涨看跌相同）；按 1% vol 除以 100 */
 export function vanna(params: GKParams): number {
-  const { S, sigma, T } = params;
+  const { sigma } = params;
   const _d1 = d1(params);
   const _d2 = d2(params);
   const D_f = discountForeign(params.r_f, discountT(params));
   if (sigma === 0) return 0;
-  const vannaRaw = -S * D_f * Math.sqrt(T) * normalPdf(_d1) * (_d2 / sigma);
+  const vannaRaw = -D_f * normalPdf(_d1) * (_d2 / sigma);
   return vannaRaw / 100;
 }
 
@@ -106,24 +106,24 @@ export function theta(params: GKParams, optionType: OptionType): number {
   return thetaPerYear / 365;
 }
 
-/** Rho_d：∂V/∂r_d；Call 为正、Put 为负；折现用 T2 */
+/** Rho_d：∂V/∂r_d，按 1% 利率变化（除以 100）；Call 为正、Put 为负；折现用 T2 */
 export function rhoD(params: GKParams, optionType: OptionType): number {
   const { K } = params;
   const Tdisc = discountT(params);
   const D_d = discountDomestic(params.r_d, Tdisc);
   const _d2 = d2(params);
-  if (optionType === 'call') return K * Tdisc * D_d * normalCdf(_d2);
-  return -K * Tdisc * D_d * normalCdf(-_d2);
+  const raw = optionType === 'call' ? K * Tdisc * D_d * normalCdf(_d2) : -K * Tdisc * D_d * normalCdf(-_d2);
+  return raw / 100;
 }
 
-/** Rho_f：对外币利率的敏感度；折现用 T2 */
+/** Rho_f（Phi）：∂V/∂r_f，按 1% 利率变化（除以 100）；折现用 T2 */
 export function rhoF(params: GKParams, optionType: OptionType): number {
   const { S } = params;
   const Tdisc = discountT(params);
   const D_f = discountForeign(params.r_f, Tdisc);
   const _d1 = d1(params);
-  if (optionType === 'call') return -S * Tdisc * D_f * normalCdf(_d1);
-  return S * Tdisc * D_f * normalCdf(-_d1);
+  const raw = optionType === 'call' ? -S * Tdisc * D_f * normalCdf(_d1) : S * Tdisc * D_f * normalCdf(-_d1);
+  return raw / 100;
 }
 
 /** Time Decay：Bump T1 ±1 天，(V(T1-1/365)-V(T1+1/365))/2，与 Fenics/QuantLib Bump T1 一致 */
