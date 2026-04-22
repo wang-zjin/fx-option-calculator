@@ -75,7 +75,13 @@ export function DateInput({
 
   const openPicker = useCallback(() => {
     if (dateInputRef.current) {
-      dateInputRef.current.showPicker?.();
+      // 先聚焦目标输入，避免浏览器把弹层锚定到上一次激活的日期框
+      dateInputRef.current.focus();
+      if (typeof dateInputRef.current.showPicker === 'function') {
+        dateInputRef.current.showPicker();
+      } else {
+        dateInputRef.current.click();
+      }
     }
   }, []);
 
